@@ -1,5 +1,5 @@
-# Binaries
-trajectory-memory
+# Binaries (root level only)
+/trajectory-memory
 *.exe
 *.exe~
 *.dll
