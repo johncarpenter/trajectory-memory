@@ -1,0 +1,90 @@
+Product Planning Meeting - Q1 2024 Roadmap Review
+Date: January 8, 2024
+Duration: 45 minutes
+Attendees: Sarah Chen (PM), Mike Rodriguez (Eng Lead), Lisa Park (Design), James Wu (Data), Alex Thompson (QA)
+
+---
+
+[00:00] Sarah: Alright, let's get started. Thanks everyone for joining. Today we're reviewing the Q1 roadmap and making sure we're aligned on priorities. I'll share my screen with the current plan.
+
+[00:45] Sarah: So as you can see, we have three major initiatives: the dashboard redesign, the API v2 launch, and the mobile notifications feature. Mike, can you give us an update on where engineering stands?
+
+[01:30] Mike: Sure. So for the dashboard, we've completed the backend refactoring last sprint. The new data aggregation layer is in place. We're about 60% done with the frontend components. Lisa's team has been great with the designs, we're mostly just implementing at this point.
+
+[02:15] Lisa: Yeah, the design system components are all finalized. I do want to flag one thing though - we got feedback from the beta users that the chart interactions feel sluggish. I think we need to revisit the animation timing.
+
+[02:45] Mike: That's a good point. James, have you looked at the performance data from the beta?
+
+[03:00] James: I have. The p95 load time for the charts is around 2.3 seconds, which is above our target of 1.5 seconds. Most of that is actually data fetching, not rendering. We might need to implement some caching or pre-aggregation.
+
+[03:30] Sarah: Okay, that sounds like it could be scope creep. Mike, what's your assessment - can we hit the February 15th launch date if we add caching?
+
+[03:50] Mike: Honestly, probably not without cutting something else. The caching work is probably a week of engineering time, plus testing.
+
+[04:15] Alex: And from QA perspective, we'd need another regression cycle if we're adding caching. That's at least 3 more days.
+
+[04:30] Sarah: Let me think about this. What if we launch with the current performance and add caching in a fast-follow? We could set user expectations.
+
+[04:50] Lisa: I'm not sure about that. The beta feedback was pretty clear - users found it frustrating. We might get negative reviews.
+
+[05:10] Mike: What about a middle ground? We could do client-side caching only, which is simpler. That would reduce repeat load times without touching the backend.
+
+[05:30] James: That could work. Based on the data, about 70% of chart interactions are users revisiting the same time ranges. Client-side caching would help those cases.
+
+[05:50] Sarah: I like that. Mike, can you scope that out? Let's say by end of day Wednesday we decide go/no-go on client-side caching.
+
+[06:05] Mike: Will do.
+
+[06:15] Sarah: Okay, moving on to API v2. James, you're leading that, right?
+
+[06:25] James: Yes. So API v2 is on track. We've finished the new authentication flow and rate limiting. Currently working on the webhook system. The documentation is about 80% done - I've been working with the developer relations team on that.
+
+[07:00] Sarah: Any blockers?
+
+[07:05] James: One thing - we need to finalize the deprecation timeline for v1. I've drafted a proposal for 6 months, but I heard from the enterprise team that some large customers might need longer.
+
+[07:30] Sarah: Yeah, I talked to the enterprise team yesterday. Acme Corp specifically asked for 12 months. They have deep integrations.
+
+[07:45] James: 12 months is a long time to maintain two APIs. That's significant engineering overhead.
+
+[08:00] Mike: Could we do tiered deprecation? General customers get 6 months, enterprise gets 12, but they pay for extended support?
+
+[08:20] Sarah: That's interesting. Let me run that by the enterprise team and legal. James, can you document what the engineering cost would be for the 12-month support scenario?
+
+[08:40] James: Sure, I'll have that by Friday.
+
+[08:50] Sarah: Great. Now, mobile notifications - Lisa, this is your baby.
+
+[09:00] Lisa: Yes! So we've finished the user research. Key finding: users want granular control. They don't want to just turn notifications on or off - they want to choose which events trigger notifications and set quiet hours.
+
+[09:30] Lisa: I've designed a preferences screen with three levels: notification type, frequency, and timing. I'll share the mockups after the meeting.
+
+[09:50] Mike: That sounds more complex than what we originally scoped. We had budgeted two sprints for mobile notifications, but granular preferences might be three.
+
+[10:15] Lisa: I know, but the research was really clear. If we ship basic notifications, users will just turn them off entirely. We've seen this pattern before.
+
+[10:35] Sarah: What if we phase it? MVP with just notification types, then add frequency and timing in the next release?
+
+[10:50] Lisa: I could live with that. Types plus quiet hours would be the minimum. Frequency is the nice-to-have.
+
+[11:05] Mike: That's doable in two sprints. We can build the architecture to support frequency later.
+
+[11:20] Alex: From testing perspective, we'll need to coordinate with mobile QA. They're currently tied up on the iOS bug fixes.
+
+[11:35] Sarah: When do they free up?
+
+[11:40] Alex: Mid-February, around the same time as the dashboard launch. We might have a resource conflict.
+
+[12:00] Sarah: Okay, let me flag that with the resource planning team. We might need to bring in a contractor for QA.
+
+[12:15] Sarah: Alright, let me summarize where we are. Dashboard: targeting Feb 15, Mike to scope client-side caching by Wednesday. API v2: on track, James to document 12-month support costs by Friday, I'll discuss tiered deprecation with enterprise. Mobile notifications: phased approach, types plus quiet hours for MVP, potential QA resource conflict to address.
+
+[12:45] Sarah: Any other concerns before we wrap?
+
+[13:00] James: One more thing - the data pipeline team mentioned they want to deprecate the old analytics format. That affects the dashboard. We should sync with them.
+
+[13:20] Mike: I'll set up a meeting with Raj from that team.
+
+[13:30] Sarah: Perfect. Okay, I'll send out notes and action items within the hour. Next roadmap sync is in two weeks. Thanks everyone!
+
+[END OF TRANSCRIPT]

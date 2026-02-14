@@ -1,0 +1,44 @@
+# Binaries
+trajectory-memory
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+coverage.html
+
+# Go workspace
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local data (default locations)
+*.db
+*.db-journal
+
+# Debug
+debug
+__debug_bin*
+
+# Build artifacts
+dist/
+build/

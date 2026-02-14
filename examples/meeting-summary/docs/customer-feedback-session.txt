@@ -1,0 +1,112 @@
+Customer Advisory Board - Feedback Session
+Date: January 12, 2024
+Duration: 60 minutes
+Attendees:
+- Internal: Maria Santos (VP Product), Tom Bradley (Customer Success), Nina Patel (UX Research)
+- Customers: David Kim (TechFlow Inc), Rachel Green (DataDriven Co), Marcus Johnson (ScaleUp Solutions)
+
+---
+
+[00:00] Maria: Welcome everyone to our quarterly customer advisory board session. We really appreciate you taking the time. Today we want to hear your honest feedback on the platform and discuss what's on your wishlist for 2024.
+
+[01:00] Maria: Let's start with what's working well. David, you've been with us the longest - what's been most valuable for your team?
+
+[01:20] David: The workflow automation has been transformative for us. We've reduced our manual data entry by about 80%. The ROI case for renewal was easy because of that. My team actually looks forward to using the tool, which is rare.
+
+[02:00] Rachel: I'd echo that. We came on six months ago specifically for the automation. What surprised us was how good the reporting is. Our executives actually use the dashboards you provide - they don't ask us to export to Excel anymore.
+
+[02:30] Marcus: For us, it's the API. We've built custom integrations with our internal tools. The documentation is clear, and when we hit issues, support has been responsive.
+
+[03:00] Tom: That's great to hear about support. Marcus, how would you rate your support experiences overall?
+
+[03:15] Marcus: Mostly good. I'd say 8 out of 10. The one gap is weekend support. We had an incident on a Saturday last month and couldn't reach anyone until Monday. For a business-critical tool, that's concerning.
+
+[03:45] Maria: That's valuable feedback. We're actually exploring 24/7 support tiers. Would that be something you'd pay extra for?
+
+[04:00] Marcus: Potentially, yes. Depends on the pricing, but reliability is worth paying for.
+
+[04:15] Maria: Nina, do you want to talk about what we're exploring for mobile?
+
+[04:30] Nina: Sure. We're developing a mobile companion app. Early concepts focus on approvals and notifications - things you'd want to handle on the go. We're not trying to replicate the full desktop experience.
+
+[05:00] Rachel: That's exactly right. I don't want to do complex work on my phone. But approving expense reports or PTO requests while I'm commuting? That would be great.
+
+[05:20] David: Will the mobile app support biometric login? Our IT team has requirements around that.
+
+[05:35] Nina: Yes, Face ID and fingerprint are in scope. We're also looking at SSO integration for mobile.
+
+[05:50] David: Good. That'll make our security team happy.
+
+[06:00] Maria: Let's talk about pain points. What's frustrating you about the product today?
+
+[06:20] Rachel: Onboarding new team members is harder than it should be. The learning curve is steep. We end up creating our own training materials because the in-app guidance is minimal.
+
+[06:45] David: Same issue. We've asked for a sandbox environment where new users can practice without affecting real data. That would be huge.
+
+[07:10] Marcus: For me, it's the search. When I'm looking for a specific record, the search results aren't always relevant. I know the data is there, but I can't find it.
+
+[07:30] Maria: Is that full-text search, or search within specific modules?
+
+[07:40] Marcus: Full-text mostly. Like if I search for a customer name, I want to see all related records - their orders, support tickets, contracts. Right now I get a mix of results that's hard to parse.
+
+[08:00] Nina: We've heard this from other customers too. We're exploring AI-powered search that understands context better. Marcus, would you be interested in being a beta tester for that?
+
+[08:20] Marcus: Absolutely.
+
+[08:30] David: Speaking of AI, what's your roadmap there? Everyone's talking about AI, but I want practical features, not buzzwords.
+
+[08:50] Maria: Fair question. We're focused on three areas: intelligent search like Nina mentioned, predictive analytics - surfacing insights you didn't know to ask for - and automation suggestions, where the system recommends workflows based on your usage patterns.
+
+[09:20] Rachel: The automation suggestions sound interesting. We probably have inefficiencies we don't even see.
+
+[09:35] Maria: Exactly. The system would say "Hey, you manually update this field after every meeting - want us to automate that?"
+
+[09:50] David: When can we expect these AI features?
+
+[10:00] Maria: Search is closest - likely Q2. Predictive analytics we're targeting Q3. Automation suggestions are more Q4 or early next year.
+
+[10:20] Tom: I want to circle back to onboarding. Rachel and David both mentioned it. What would ideal onboarding look like?
+
+[10:40] Rachel: Interactive tutorials that walk through real scenarios. Not just "click here, click there" but "here's how you'd handle a common workflow."
+
+[11:00] David: And role-based. A sales person doesn't need the same onboarding as a finance person. Right now everyone gets the same generic tour.
+
+[11:20] Nina: We're actually redesigning onboarding this quarter. These are exactly the principles we're building around. Can we schedule follow-up calls to review mockups with you?
+
+[11:40] Rachel: Happy to help.
+
+[11:45] David: Same here.
+
+[12:00] Maria: Let's talk about integrations. What else do you need us to connect with?
+
+[12:15] Marcus: HubSpot. I know you integrate with Salesforce, but we're a HubSpot shop. The current workaround is clunky.
+
+[12:30] Rachel: Google Workspace. Specifically Google Sheets and Google Calendar. We use Google across the org.
+
+[12:50] David: I'd second the calendar integration. Being able to see appointments from the platform without switching apps would save time.
+
+[13:10] Maria: Both of those are on our integration roadmap. HubSpot is in progress - probably two months out. Google Workspace is more complex but planned for mid-year.
+
+[13:30] Marcus: Good to hear HubSpot is coming.
+
+[13:40] Maria: Any feedback on pricing or packaging? We're reviewing our plans.
+
+[14:00] Rachel: The per-seat pricing can get expensive when you scale. Some kind of volume discount would be appreciated.
+
+[14:20] David: I'd like to see more flexibility in what's included. We pay for modules we don't use because they're bundled. A more modular approach would be better.
+
+[14:45] Marcus: Enterprise agreements. For companies our size, annual contracts with locked-in pricing make budgeting easier.
+
+[15:00] Maria: All good input. We're actively discussing more flexible packaging. No promises yet, but we hear you.
+
+[15:20] Maria: Final thoughts? Anything we didn't cover?
+
+[15:35] Rachel: Just keep listening like this. These sessions make us feel like we're partners, not just customers.
+
+[15:50] David: Agreed. And act on the feedback. We've raised the onboarding issue before.
+
+[16:05] Maria: That's fair, David. You'll see action on onboarding this quarter, I promise.
+
+[16:20] Maria: Thank you all so much. Tom will send out notes, and we'll schedule those onboarding mockup reviews. See you next quarter!
+
+[END OF TRANSCRIPT]
