@@ -1,4 +1,4 @@
-module github.com/2lines/trajectory-memory
+module github.com/johncarpenter/trajectory-memory
 
 go 1.25.6
 

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/2lines/trajectory-memory/internal/types"
+	"github.com/johncarpenter/trajectory-memory/internal/types"
 )
 
 // mockStore implements store.Store for testing

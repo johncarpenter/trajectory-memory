@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/2lines/trajectory-memory/internal/store"
-	"github.com/2lines/trajectory-memory/internal/types"
+	"github.com/johncarpenter/trajectory-memory/internal/store"
+	"github.com/johncarpenter/trajectory-memory/internal/types"
 )
 
 var (

@@ -14,11 +14,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/2lines/trajectory-memory/internal/ingestion"
-	"github.com/2lines/trajectory-memory/internal/optimizer"
-	"github.com/2lines/trajectory-memory/internal/store"
-	"github.com/2lines/trajectory-memory/internal/summarize"
-	"github.com/2lines/trajectory-memory/internal/types"
+	"github.com/johncarpenter/trajectory-memory/internal/ingestion"
+	"github.com/johncarpenter/trajectory-memory/internal/optimizer"
+	"github.com/johncarpenter/trajectory-memory/internal/store"
+	"github.com/johncarpenter/trajectory-memory/internal/summarize"
+	"github.com/johncarpenter/trajectory-memory/internal/types"
 )
 
 const (

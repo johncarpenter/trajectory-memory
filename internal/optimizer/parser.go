@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/2lines/trajectory-memory/internal/types"
+	"github.com/johncarpenter/trajectory-memory/internal/types"
 )
 
 var (
