@@ -46,10 +46,8 @@ type HookEntry struct {
 	Hooks   []Hook      `json:"hooks"`
 }
 
-// HookMatcher defines which tools trigger the hook.
-type HookMatcher struct {
-	Tools []string `json:"tools,omitempty"` // Empty matches all tools
-}
+// HookMatcher is a string that matches tool names (use "*" for all tools).
+type HookMatcher string
 
 // Hook defines the command to run.
 type Hook struct {
@@ -111,7 +109,7 @@ func (i *Installer) Install(opts InstallOptions) error {
 		settings.Hooks = &HooksConfig{}
 	}
 	settings.Hooks.PostToolUse = append(settings.Hooks.PostToolUse, HookEntry{
-		Matcher: HookMatcher{}, // Empty matcher matches all tools
+		Matcher: "*", // Match all tools
 		Hooks: []Hook{
 			{
 				Type:    "command",

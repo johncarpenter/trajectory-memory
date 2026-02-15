@@ -126,7 +126,7 @@ func TestInstallPreservesExistingHooks(t *testing.T) {
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": {"tools": ["Bash"]},
+        "matcher": "Bash",
         "hooks": [{"type": "command", "command": "/path/to/existing-hook.sh"}]
       }
     ]
@@ -269,7 +269,7 @@ func TestUninstallPreservesOtherHooks(t *testing.T) {
 	json.Unmarshal(data, &settings)
 
 	settings.Hooks.PostToolUse = append(settings.Hooks.PostToolUse, HookEntry{
-		Matcher: HookMatcher{Tools: []string{"Bash"}},
+		Matcher: "Bash",
 		Hooks: []Hook{
 			{Type: "command", Command: "/path/to/other-hook.sh"},
 		},
