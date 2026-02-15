@@ -10,7 +10,7 @@ Get trajectory-memory running with Claude Code in 5 minutes.
 ## Step 1: Install trajectory-memory
 
 ```bash
-go install github.com/johncarpenter/trajectory-memory/cmd/trajectory-memory@v0.1.4
+go install github.com/johncarpenter/trajectory-memory/cmd/trajectory-memory@v0.1.5
 ```
 
 Or build from source:
