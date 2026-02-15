@@ -35,11 +35,20 @@ var (
 	examplesStartPattern = regexp.MustCompile(`<!--\s*trajectory-examples:start\s+(.+?)\s*-->`)
 	examplesEndPattern   = regexp.MustCompile(`<!--\s*trajectory-examples:end\s*-->`)
 
+	// <!-- trajectory-strategies:daily-briefing -->
+	strategiesStartPattern = regexp.MustCompile(`<!--\s*trajectory-strategies:(\S+)\s*-->`)
+	strategiesEndPattern   = regexp.MustCompile(`<!--\s*/trajectory-strategies:\S+\s*-->`)
+
 	// Attribute patterns
-	tagAttrPattern          = regexp.MustCompile(`tag\s*=\s*"([^"]+)"`)
-	minSessionsAttrPattern  = regexp.MustCompile(`min_sessions\s*=\s*(\d+)`)
-	maxAttrPattern          = regexp.MustCompile(`max\s*=\s*(\d+)`)
+	tagAttrPattern             = regexp.MustCompile(`tag\s*=\s*"([^"]+)"`)
+	minSessionsAttrPattern     = regexp.MustCompile(`min_sessions\s*=\s*(\d+)`)
+	maxAttrPattern             = regexp.MustCompile(`max\s*=\s*(\d+)`)
 	includeNegativeAttrPattern = regexp.MustCompile(`include_negative\s*=\s*(true|false)`)
+
+	// Strategy content patterns (simple YAML-like parsing)
+	strategyNamePattern        = regexp.MustCompile(`^\s*-\s*name:\s*(.+)$`)
+	strategyDescPattern        = regexp.MustCompile(`^\s*description:\s*(.+)$`)
+	strategyApproachPattern    = regexp.MustCompile(`^\s*approach_prompt:\s*\|?\s*$`)
 )
 
 // Parser provides methods for finding and replacing optimization targets in markdown files.
@@ -349,6 +358,13 @@ type pendingExamplesTarget struct {
 	content         strings.Builder
 }
 
+type pendingStrategiesTarget struct {
+	filePath  string
+	tag       string
+	startLine int
+	content   strings.Builder
+}
+
 // parseOptimizeAttrs extracts tag and min_sessions from attribute string.
 func parseOptimizeAttrs(attrs string) (tag string, minSessions int, err error) {
 	// Extract tag (required)
@@ -393,4 +409,207 @@ func parseExamplesAttrs(attrs string) (tag string, maxExamples int, includeNegat
 	}
 
 	return tag, maxExamples, includeNegative, nil
+}
+
+// FindStrategiesTargets scans a markdown file for strategies markers.
+func (p *Parser) FindStrategiesTargets(filePath string) ([]types.StrategiesTarget, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	var targets []types.StrategiesTarget
+	var currentStart *pendingStrategiesTarget
+	scanner := bufio.NewScanner(file)
+	lineNum := 0
+
+	for scanner.Scan() {
+		lineNum++
+		line := scanner.Text()
+
+		// Check for start marker: <!-- trajectory-strategies:tag -->
+		if match := strategiesStartPattern.FindStringSubmatch(line); match != nil {
+			if currentStart != nil {
+				return nil, fmt.Errorf("%w: nested start marker at line %d", ErrNestedMarkers, lineNum)
+			}
+
+			currentStart = &pendingStrategiesTarget{
+				filePath:  filePath,
+				tag:       match[1],
+				startLine: lineNum,
+				content:   strings.Builder{},
+			}
+			continue
+		}
+
+		// Check for end marker: <!-- /trajectory-strategies:tag -->
+		if strategiesEndPattern.MatchString(line) {
+			if currentStart == nil {
+				return nil, fmt.Errorf("%w: end marker without start at line %d", ErrUnpairedMarkers, lineNum)
+			}
+
+			targets = append(targets, types.StrategiesTarget{
+				FilePath:  currentStart.filePath,
+				Tag:       currentStart.tag,
+				StartLine: currentStart.startLine,
+				EndLine:   lineNum,
+				Content:   strings.TrimSpace(currentStart.content.String()),
+			})
+			currentStart = nil
+			continue
+		}
+
+		// Accumulate content if inside a target
+		if currentStart != nil {
+			if currentStart.content.Len() > 0 {
+				currentStart.content.WriteString("\n")
+			}
+			currentStart.content.WriteString(line)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading file: %w", err)
+	}
+
+	if currentStart != nil {
+		return nil, fmt.Errorf("%w: start marker at line %d without end marker", ErrUnpairedMarkers, currentStart.startLine)
+	}
+
+	return targets, nil
+}
+
+// ParseStrategies parses strategy definitions from the content between markers.
+// Supports a simple YAML-like format:
+//
+//	strategies:
+//	  - name: comprehensive
+//	    description: Summarize everything
+//	    approach_prompt: |
+//	      Do X, Y, Z...
+func (p *Parser) ParseStrategies(content string) ([]types.Strategy, error) {
+	var strategies []types.Strategy
+	var current *types.Strategy
+	var inApproachPrompt bool
+	var approachPromptIndent int
+	var approachLines []string
+
+	lines := strings.Split(content, "\n")
+
+	for _, line := range lines {
+		// Skip empty lines and "strategies:" header
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || trimmed == "strategies:" {
+			continue
+		}
+
+		// Check for new strategy (- name: xxx)
+		if match := strategyNamePattern.FindStringSubmatch(line); match != nil {
+			// Save previous strategy if exists
+			if current != nil {
+				if inApproachPrompt && len(approachLines) > 0 {
+					current.ApproachPrompt = strings.TrimSpace(strings.Join(approachLines, "\n"))
+				}
+				strategies = append(strategies, *current)
+			}
+
+			current = &types.Strategy{
+				Name: strings.TrimSpace(match[1]),
+			}
+			inApproachPrompt = false
+			approachLines = nil
+			continue
+		}
+
+		// If we don't have a current strategy, skip
+		if current == nil {
+			continue
+		}
+
+		// Check for description
+		if match := strategyDescPattern.FindStringSubmatch(line); match != nil {
+			current.Description = strings.TrimSpace(match[1])
+			inApproachPrompt = false
+			continue
+		}
+
+		// Check for approach_prompt start
+		if strategyApproachPattern.MatchString(line) {
+			inApproachPrompt = true
+			approachLines = nil
+			// Calculate indent for multi-line content
+			approachPromptIndent = len(line) - len(strings.TrimLeft(line, " \t")) + 2
+			continue
+		}
+
+		// If we're in approach_prompt, accumulate lines
+		if inApproachPrompt {
+			// Check if this line is still indented (part of the block)
+			lineIndent := len(line) - len(strings.TrimLeft(line, " \t"))
+			if lineIndent >= approachPromptIndent || trimmed == "" {
+				// Remove the base indentation
+				if len(line) >= approachPromptIndent {
+					approachLines = append(approachLines, line[approachPromptIndent:])
+				} else {
+					approachLines = append(approachLines, trimmed)
+				}
+			} else {
+				// Line is less indented, end of approach_prompt
+				current.ApproachPrompt = strings.TrimSpace(strings.Join(approachLines, "\n"))
+				inApproachPrompt = false
+				approachLines = nil
+			}
+		}
+	}
+
+	// Don't forget the last strategy
+	if current != nil {
+		if inApproachPrompt && len(approachLines) > 0 {
+			current.ApproachPrompt = strings.TrimSpace(strings.Join(approachLines, "\n"))
+		}
+		strategies = append(strategies, *current)
+	}
+
+	return strategies, nil
+}
+
+// ReplaceStrategiesTarget replaces the content between strategies markers with new content.
+func (p *Parser) ReplaceStrategiesTarget(filePath string, target types.StrategiesTarget, newContent string) error {
+	// Read the entire file
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	lines := strings.Split(string(content), "\n")
+
+	// Validate line numbers
+	if target.StartLine < 1 || target.EndLine > len(lines) || target.StartLine >= target.EndLine {
+		return fmt.Errorf("invalid line range: start=%d, end=%d, total=%d", target.StartLine, target.EndLine, len(lines))
+	}
+
+	// Build new content
+	var result strings.Builder
+
+	// Lines before start marker (1-indexed, so we use StartLine-1)
+	for i := 0; i < target.StartLine; i++ {
+		result.WriteString(lines[i])
+		result.WriteString("\n")
+	}
+
+	// New content
+	result.WriteString(newContent)
+	result.WriteString("\n")
+
+	// Lines from end marker onwards (EndLine is 1-indexed)
+	for i := target.EndLine - 1; i < len(lines); i++ {
+		result.WriteString(lines[i])
+		if i < len(lines)-1 {
+			result.WriteString("\n")
+		}
+	}
+
+	// Write atomically
+	return atomicWrite(filePath, result.String())
 }

@@ -180,6 +180,14 @@ func (s *Server) handleToolsCall(req *Request) {
 		result, err = s.handleTriggerStatus()
 	case "trajectory_trigger_configure":
 		result, err = s.handleTriggerConfigure(params.Arguments)
+	case "trajectory_strategies_list":
+		result, err = s.handleStrategiesList(params.Arguments)
+	case "trajectory_strategies_select":
+		result, err = s.handleStrategiesSelect(params.Arguments)
+	case "trajectory_strategies_record":
+		result, err = s.handleStrategiesRecord(params.Arguments)
+	case "trajectory_strategies_analyze":
+		result, err = s.handleStrategiesAnalyze(params.Arguments)
 	default:
 		s.sendError(req.ID, InvalidParams, fmt.Sprintf("Unknown tool: %s", params.Name), nil)
 		return
@@ -880,5 +888,348 @@ func (s *Server) send(resp Response) {
 		return
 	}
 	s.writer.Write(append(data, '\n'))
+}
+
+// Strategy handlers
+
+func (s *Server) handleStrategiesList(args json.RawMessage) (ToolCallResult, error) {
+	var input TrajectoryStrategiesListInput
+	if err := json.Unmarshal(args, &input); err != nil {
+		return ToolCallResult{}, fmt.Errorf("invalid input: %w", err)
+	}
+
+	if input.Tag == "" {
+		return ToolCallResult{}, fmt.Errorf("tag is required")
+	}
+
+	// Default to CLAUDE.md in current directory
+	filePath := input.FilePath
+	if filePath == "" {
+		filePath = "CLAUDE.md"
+	}
+
+	parser := optimizer.NewParser()
+	targets, err := parser.FindStrategiesTargets(filePath)
+	if err != nil {
+		return ToolCallResult{}, fmt.Errorf("failed to parse file: %w", err)
+	}
+
+	// Find matching target
+	var matchingTarget *types.StrategiesTarget
+	for _, t := range targets {
+		if t.Tag == input.Tag {
+			matchingTarget = &t
+			break
+		}
+	}
+
+	if matchingTarget == nil {
+		return ToolCallResult{}, fmt.Errorf("no strategies found for tag: %s", input.Tag)
+	}
+
+	// Parse strategies from content
+	strategies, err := parser.ParseStrategies(matchingTarget.Content)
+	if err != nil {
+		return ToolCallResult{}, fmt.Errorf("failed to parse strategies: %w", err)
+	}
+
+	// Get usage stats if available
+	if s.boltStore != nil {
+		stats, _ := s.boltStore.GetStrategyStats(input.Tag)
+		for i, strat := range strategies {
+			if stat, ok := stats[strat.Name]; ok {
+				strategies[i].AvgScore = stat.AvgScore
+				strategies[i].SessionCount = stat.SessionCount
+			}
+		}
+	}
+
+	var output strings.Builder
+	output.WriteString(fmt.Sprintf("## Strategies for '%s'\n\n", input.Tag))
+
+	for _, strat := range strategies {
+		output.WriteString(fmt.Sprintf("### %s\n", strat.Name))
+		if strat.Description != "" {
+			output.WriteString(fmt.Sprintf("*%s*\n\n", strat.Description))
+		}
+		if strat.SessionCount > 0 {
+			output.WriteString(fmt.Sprintf("**Stats:** %d sessions, avg score: %.2f\n\n", strat.SessionCount, strat.AvgScore))
+		}
+		output.WriteString("**Approach:**\n```\n")
+		output.WriteString(strat.ApproachPrompt)
+		output.WriteString("\n```\n\n")
+	}
+
+	return ToolCallResult{
+		Content: []ContentBlock{{Type: "text", Text: output.String()}},
+	}, nil
+}
+
+func (s *Server) handleStrategiesSelect(args json.RawMessage) (ToolCallResult, error) {
+	var input TrajectoryStrategiesSelectInput
+	if err := json.Unmarshal(args, &input); err != nil {
+		return ToolCallResult{}, fmt.Errorf("invalid input: %w", err)
+	}
+
+	if input.Tag == "" {
+		return ToolCallResult{}, fmt.Errorf("tag is required")
+	}
+	if input.Mode == "" {
+		return ToolCallResult{}, fmt.Errorf("mode is required")
+	}
+
+	// Default to CLAUDE.md
+	filePath := input.FilePath
+	if filePath == "" {
+		filePath = "CLAUDE.md"
+	}
+
+	parser := optimizer.NewParser()
+	targets, err := parser.FindStrategiesTargets(filePath)
+	if err != nil {
+		return ToolCallResult{}, fmt.Errorf("failed to parse file: %w", err)
+	}
+
+	// Find matching target
+	var matchingTarget *types.StrategiesTarget
+	for _, t := range targets {
+		if t.Tag == input.Tag {
+			matchingTarget = &t
+			break
+		}
+	}
+
+	if matchingTarget == nil {
+		return ToolCallResult{}, fmt.Errorf("no strategies found for tag: %s", input.Tag)
+	}
+
+	// Parse strategies
+	strategies, err := parser.ParseStrategies(matchingTarget.Content)
+	if err != nil {
+		return ToolCallResult{}, fmt.Errorf("failed to parse strategies: %w", err)
+	}
+
+	if len(strategies) == 0 {
+		return ToolCallResult{}, fmt.Errorf("no strategies defined for tag: %s", input.Tag)
+	}
+
+	var selectedStrategy *types.Strategy
+	var reason string
+
+	switch input.Mode {
+	case "explicit":
+		if input.StrategyName == "" {
+			return ToolCallResult{}, fmt.Errorf("strategy_name is required for explicit mode")
+		}
+		for _, strat := range strategies {
+			if strat.Name == input.StrategyName {
+				selectedStrategy = &strat
+				reason = "Explicitly selected"
+				break
+			}
+		}
+		if selectedStrategy == nil {
+			return ToolCallResult{}, fmt.Errorf("strategy '%s' not found", input.StrategyName)
+		}
+
+	case "recommend":
+		// Get stats and recommend best performer
+		var stats map[string]*types.Strategy
+		if s.boltStore != nil {
+			stats, _ = s.boltStore.GetStrategyStats(input.Tag)
+		}
+
+		var bestScore float64 = -1
+		for _, strat := range strategies {
+			if stat, ok := stats[strat.Name]; ok && stat.SessionCount >= 2 {
+				if stat.AvgScore > bestScore {
+					bestScore = stat.AvgScore
+					stratCopy := strat
+					stratCopy.AvgScore = stat.AvgScore
+					stratCopy.SessionCount = stat.SessionCount
+					selectedStrategy = &stratCopy
+					reason = fmt.Sprintf("Best performer (%.2f avg over %d sessions)", stat.AvgScore, stat.SessionCount)
+				}
+			}
+		}
+
+		// Fall back to first strategy if no stats
+		if selectedStrategy == nil {
+			selectedStrategy = &strategies[0]
+			reason = "Default (no performance data yet)"
+		}
+
+	case "rotate":
+		// Find least-used strategy for exploration
+		var stats map[string]*types.Strategy
+		if s.boltStore != nil {
+			stats, _ = s.boltStore.GetStrategyStats(input.Tag)
+		}
+
+		var minCount int = 999999
+		for _, strat := range strategies {
+			count := 0
+			if stat, ok := stats[strat.Name]; ok {
+				count = stat.SessionCount
+			}
+			if count < minCount {
+				minCount = count
+				stratCopy := strat
+				if stat, ok := stats[strat.Name]; ok {
+					stratCopy.SessionCount = stat.SessionCount
+				}
+				selectedStrategy = &stratCopy
+				reason = fmt.Sprintf("Rotation for exploration (%d previous uses)", count)
+			}
+		}
+
+	default:
+		return ToolCallResult{}, fmt.Errorf("invalid mode: %s (use explicit, recommend, or rotate)", input.Mode)
+	}
+
+	var output strings.Builder
+	output.WriteString(fmt.Sprintf("## Selected Strategy: %s\n\n", selectedStrategy.Name))
+	output.WriteString(fmt.Sprintf("**Selection reason:** %s\n\n", reason))
+	if selectedStrategy.Description != "" {
+		output.WriteString(fmt.Sprintf("**Description:** %s\n\n", selectedStrategy.Description))
+	}
+	output.WriteString("**Approach to use:**\n```\n")
+	output.WriteString(selectedStrategy.ApproachPrompt)
+	output.WriteString("\n```\n\n")
+	output.WriteString(fmt.Sprintf("After completing the task, record this strategy with `trajectory_strategies_record` using strategy_name=\"%s\"", selectedStrategy.Name))
+
+	return ToolCallResult{
+		Content: []ContentBlock{{Type: "text", Text: output.String()}},
+	}, nil
+}
+
+func (s *Server) handleStrategiesRecord(args json.RawMessage) (ToolCallResult, error) {
+	if s.boltStore == nil {
+		return ToolCallResult{}, fmt.Errorf("strategy recording not available")
+	}
+
+	var input TrajectoryStrategiesRecordInput
+	if err := json.Unmarshal(args, &input); err != nil {
+		return ToolCallResult{}, fmt.Errorf("invalid input: %w", err)
+	}
+
+	if input.SessionID == "" {
+		return ToolCallResult{}, fmt.Errorf("session_id is required")
+	}
+	if input.Tag == "" {
+		return ToolCallResult{}, fmt.Errorf("tag is required")
+	}
+	if input.StrategyName == "" {
+		return ToolCallResult{}, fmt.Errorf("strategy_name is required")
+	}
+
+	usage := types.StrategyUsage{
+		Tag:          input.Tag,
+		StrategyName: input.StrategyName,
+		SessionID:    input.SessionID,
+		UsedAt:       time.Now(),
+	}
+
+	if err := s.boltStore.RecordStrategyUsage(usage); err != nil {
+		return ToolCallResult{}, fmt.Errorf("failed to record strategy usage: %w", err)
+	}
+
+	// Also update the session's Strategy field
+	session, err := s.store.GetSession(input.SessionID)
+	if err == nil {
+		session.Strategy = input.StrategyName
+		s.store.UpdateSession(session)
+	}
+
+	return ToolCallResult{
+		Content: []ContentBlock{{Type: "text", Text: fmt.Sprintf("Recorded strategy '%s' for session %s (tag: %s). When you stop the session, the score will be associated with this strategy.", input.StrategyName, input.SessionID, input.Tag)}},
+	}, nil
+}
+
+func (s *Server) handleStrategiesAnalyze(args json.RawMessage) (ToolCallResult, error) {
+	if s.boltStore == nil {
+		return ToolCallResult{}, fmt.Errorf("strategy analysis not available")
+	}
+
+	var input TrajectoryStrategiesAnalyzeInput
+	if err := json.Unmarshal(args, &input); err != nil {
+		return ToolCallResult{}, fmt.Errorf("invalid input: %w", err)
+	}
+
+	if input.Tag == "" {
+		return ToolCallResult{}, fmt.Errorf("tag is required")
+	}
+
+	stats, err := s.boltStore.GetStrategyStats(input.Tag)
+	if err != nil {
+		return ToolCallResult{}, fmt.Errorf("failed to get strategy stats: %w", err)
+	}
+
+	if len(stats) == 0 {
+		return ToolCallResult{
+			Content: []ContentBlock{{Type: "text", Text: fmt.Sprintf("No strategy usage data for tag '%s' yet. Use `trajectory_strategies_record` to associate strategies with sessions.", input.Tag)}},
+		}, nil
+	}
+
+	// Build analysis
+	var output strings.Builder
+	output.WriteString(fmt.Sprintf("## Strategy Analysis for '%s'\n\n", input.Tag))
+	output.WriteString("| Strategy | Sessions | Avg Score |\n")
+	output.WriteString("|----------|----------|----------|\n")
+
+	var bestStrategy string
+	var bestScore float64 = -1
+	var totalSessions int
+	var leastUsed string
+	var leastUsedCount int = 999999
+
+	for name, strat := range stats {
+		scoreStr := "N/A"
+		if strat.SessionCount > 0 && strat.AvgScore > 0 {
+			scoreStr = fmt.Sprintf("%.2f", strat.AvgScore)
+		}
+		output.WriteString(fmt.Sprintf("| %s | %d | %s |\n", name, strat.SessionCount, scoreStr))
+
+		totalSessions += strat.SessionCount
+
+		if strat.AvgScore > bestScore && strat.SessionCount >= 2 {
+			bestScore = strat.AvgScore
+			bestStrategy = name
+		}
+
+		if strat.SessionCount < leastUsedCount {
+			leastUsedCount = strat.SessionCount
+			leastUsed = name
+		}
+	}
+
+	output.WriteString("\n### Recommendations\n\n")
+
+	if bestStrategy != "" {
+		output.WriteString(fmt.Sprintf("**Best performer:** %s (%.2f avg score)\n", bestStrategy, bestScore))
+	} else {
+		output.WriteString("**Best performer:** Not enough data yet (need at least 2 sessions per strategy)\n")
+	}
+
+	// Check if we need more exploration
+	needsExploration := false
+	for _, strat := range stats {
+		if strat.SessionCount < 3 {
+			needsExploration = true
+			break
+		}
+	}
+
+	if needsExploration {
+		output.WriteString(fmt.Sprintf("\n**Suggested next:** Try '%s' (only %d sessions) to gather more comparison data\n", leastUsed, leastUsedCount))
+	} else if bestStrategy != "" {
+		output.WriteString(fmt.Sprintf("\n**Suggested next:** Use '%s' (best performer) for optimal results\n", bestStrategy))
+	}
+
+	output.WriteString(fmt.Sprintf("\n**Total sessions analyzed:** %d\n", totalSessions))
+
+	return ToolCallResult{
+		Content: []ContentBlock{{Type: "text", Text: output.String()}},
+	}, nil
 }
 

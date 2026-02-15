@@ -115,6 +115,7 @@ cp -r agent_scripts/commands/* .claude/commands/
 | `/trajectory-status` | Check if recording is active |
 | `/trajectory-list` | List recent recorded sessions |
 | `/trajectory-propose` | Propose CLAUDE.md improvements based on trajectory data |
+| `/trajectory-strategies-analyze` | Analyze strategy performance for a tag |
 
 ### Usage Examples
 
@@ -150,6 +151,12 @@ When running as an MCP server, these tools are available:
 - `trajectory_curate_apply` - Apply curated examples to a file
 - `trajectory_trigger_status` - Check trigger configuration
 - `trajectory_trigger_configure` - Configure auto-optimization triggers
+
+### Strategy Learning
+- `trajectory_strategies_list` - List available strategies for a tag from CLAUDE.md
+- `trajectory_strategies_select` - Select which strategy to use (explicit/recommend/rotate)
+- `trajectory_strategies_record` - Record which strategy was used for a session
+- `trajectory_strategies_analyze` - Analyze strategy performance based on trajectory scores
 
 ## Environment Variables
 
@@ -213,6 +220,58 @@ After accumulating scored sessions, run:
 ```bash
 trajectory-memory optimize propose CLAUDE.md --tag research
 ```
+
+### Strategies
+
+Define multiple named approaches for task types in your CLAUDE.md. trajectory-memory will learn which strategies perform best based on session scores.
+
+Add strategy markers to your CLAUDE.md:
+
+```markdown
+<!-- trajectory-strategies:daily-briefing -->
+strategies:
+  - name: comprehensive
+    description: Summarize everything
+    approach_prompt: |
+      Summarize all articles from all feeds.
+      Group by source. Include every article with 2-3 sentence summary.
+
+  - name: curated
+    description: Pick the best
+    approach_prompt: |
+      Select the 5-7 most important/relevant articles.
+      Provide deeper summaries (4-5 sentences each).
+      Explain why each was selected.
+
+  - name: thematic
+    description: Find connections
+    approach_prompt: |
+      Identify 3-4 themes across all feeds.
+      Group articles by theme and synthesize.
+      Lead with the most significant theme.
+<!-- /trajectory-strategies:daily-briefing -->
+```
+
+Use strategies when starting a session:
+
+```bash
+# Explicit: Use a specific strategy
+/trajectory-start --strategy curated daily-briefing
+
+# Recommend: Let trajectory-memory pick the best performer
+/trajectory-start --recommend daily-briefing
+
+# Rotate: Cycle through strategies to gather comparative data
+/trajectory-start --rotate daily-briefing
+```
+
+Analyze strategy performance:
+
+```
+/trajectory-strategies-analyze daily-briefing
+```
+
+The system uses an explore/exploit balance - recommending the best-performing strategy while occasionally suggesting underused strategies to gather more data.
 
 ## Examples
 

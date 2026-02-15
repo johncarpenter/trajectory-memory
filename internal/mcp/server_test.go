@@ -132,6 +132,10 @@ func TestToolsList(t *testing.T) {
 		"trajectory_curate_apply",
 		"trajectory_trigger_status",
 		"trajectory_trigger_configure",
+		"trajectory_strategies_list",
+		"trajectory_strategies_select",
+		"trajectory_strategies_record",
+		"trajectory_strategies_analyze",
 	}
 
 	if len(result.Tools) != len(expectedTools) {

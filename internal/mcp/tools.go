@@ -143,6 +143,32 @@ type TrajectoryTriggerConfigureInput struct {
 	WatchFiles       []string `json:"watch_files,omitempty"`
 }
 
+// TrajectoryStrategiesListInput is the input for trajectory_strategies_list.
+type TrajectoryStrategiesListInput struct {
+	FilePath string `json:"file_path,omitempty"`
+	Tag      string `json:"tag"`
+}
+
+// TrajectoryStrategiesSelectInput is the input for trajectory_strategies_select.
+type TrajectoryStrategiesSelectInput struct {
+	FilePath     string `json:"file_path,omitempty"`
+	Tag          string `json:"tag"`
+	Mode         string `json:"mode"` // explicit, recommend, rotate
+	StrategyName string `json:"strategy_name,omitempty"`
+}
+
+// TrajectoryStrategiesRecordInput is the input for trajectory_strategies_record.
+type TrajectoryStrategiesRecordInput struct {
+	SessionID    string `json:"session_id"`
+	Tag          string `json:"tag"`
+	StrategyName string `json:"strategy_name"`
+}
+
+// TrajectoryStrategiesAnalyzeInput is the input for trajectory_strategies_analyze.
+type TrajectoryStrategiesAnalyzeInput struct {
+	Tag string `json:"tag"`
+}
+
 // GetToolDefinitions returns all trajectory memory tool definitions.
 func GetToolDefinitions() []Tool {
 	minScore := 0.0
@@ -458,6 +484,88 @@ func GetToolDefinitions() []Tool {
 						Items:       &Property{Type: "string"},
 					},
 				},
+			},
+		},
+		// Strategy tools
+		{
+			Name:        "trajectory_strategies_list",
+			Description: "List available strategies for a tag from CLAUDE.md. Parses trajectory-strategies markers and returns defined strategies with their approach prompts.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"file_path": {
+						Type:        "string",
+						Description: "Path to CLAUDE.md or file containing strategy markers. Defaults to ./CLAUDE.md",
+					},
+					"tag": {
+						Type:        "string",
+						Description: "Strategy tag to look up (e.g., 'daily-briefing')",
+					},
+				},
+				Required: []string{"tag"},
+			},
+		},
+		{
+			Name:        "trajectory_strategies_select",
+			Description: "Select which strategy to use for the current session. Supports explicit selection, AI recommendation based on past scores, or rotation for exploration.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"file_path": {
+						Type:        "string",
+						Description: "Path to CLAUDE.md or file containing strategy markers. Defaults to ./CLAUDE.md",
+					},
+					"tag": {
+						Type:        "string",
+						Description: "Strategy tag (e.g., 'daily-briefing')",
+					},
+					"mode": {
+						Type:        "string",
+						Description: "Selection mode: 'explicit' (specify strategy_name), 'recommend' (best performer), or 'rotate' (explore underused)",
+						Enum:        []string{"explicit", "recommend", "rotate"},
+					},
+					"strategy_name": {
+						Type:        "string",
+						Description: "Strategy name (required for explicit mode)",
+					},
+				},
+				Required: []string{"tag", "mode"},
+			},
+		},
+		{
+			Name:        "trajectory_strategies_record",
+			Description: "Record which strategy was used for a session. Call this before trajectory_stop to associate the strategy with the session outcome.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"session_id": {
+						Type:        "string",
+						Description: "Session ID from trajectory_start",
+					},
+					"tag": {
+						Type:        "string",
+						Description: "Strategy tag",
+					},
+					"strategy_name": {
+						Type:        "string",
+						Description: "Name of the strategy that was used",
+					},
+				},
+				Required: []string{"session_id", "tag", "strategy_name"},
+			},
+		},
+		{
+			Name:        "trajectory_strategies_analyze",
+			Description: "Analyze strategy performance based on trajectory scores. Shows which strategies have the best average scores and recommends the next strategy to try.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"tag": {
+						Type:        "string",
+						Description: "Strategy tag to analyze",
+					},
+				},
+				Required: []string{"tag"},
 			},
 		},
 	}

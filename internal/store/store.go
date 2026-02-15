@@ -29,9 +29,10 @@ var (
 
 // Bucket names
 var (
-	bucketSessions = []byte("sessions")
-	bucketActive   = []byte("active")
-	bucketIndex    = []byte("index")
+	bucketSessions       = []byte("sessions")
+	bucketActive         = []byte("active")
+	bucketIndex          = []byte("index")
+	bucketStrategyUsage  = []byte("strategy_usage")
 )
 
 // Store defines the interface for session persistence.
@@ -73,7 +74,7 @@ func NewBoltStore(dbPath string) (*BoltStore, error) {
 
 	// Create buckets
 	err = db.Update(func(tx *bolt.Tx) error {
-		for _, bucket := range [][]byte{bucketSessions, bucketActive, bucketIndex} {
+		for _, bucket := range [][]byte{bucketSessions, bucketActive, bucketIndex, bucketStrategyUsage} {
 			if _, err := tx.CreateBucketIfNotExists(bucket); err != nil {
 				return fmt.Errorf("failed to create bucket %s: %w", bucket, err)
 			}
@@ -516,6 +517,134 @@ func (s *BoltStore) Close() error {
 }
 
 // NewULID generates a new ULID-like ID.
+// RecordStrategyUsage records which strategy was used for a session.
+func (s *BoltStore) RecordStrategyUsage(usage types.StrategyUsage) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(bucketStrategyUsage)
+
+		data, err := json.Marshal(usage)
+		if err != nil {
+			return fmt.Errorf("failed to marshal strategy usage: %w", err)
+		}
+
+		// Key format: tag:session_id
+		key := fmt.Sprintf("%s:%s", usage.Tag, usage.SessionID)
+		return bucket.Put([]byte(key), data)
+	})
+}
+
+// GetStrategyUsage retrieves strategy usage records for a tag.
+func (s *BoltStore) GetStrategyUsage(tag string, limit int) ([]types.StrategyUsage, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var usages []types.StrategyUsage
+	prefix := []byte(tag + ":")
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(bucketStrategyUsage)
+		c := bucket.Cursor()
+
+		count := 0
+		for k, v := c.Seek(prefix); k != nil && strings.HasPrefix(string(k), tag+":"); k, v = c.Next() {
+			if limit > 0 && count >= limit {
+				break
+			}
+
+			var usage types.StrategyUsage
+			if err := json.Unmarshal(v, &usage); err != nil {
+				continue // Skip malformed entries
+			}
+			usages = append(usages, usage)
+			count++
+		}
+		return nil
+	})
+
+	return usages, err
+}
+
+// GetStrategyStats calculates aggregate statistics for strategies under a tag.
+func (s *BoltStore) GetStrategyStats(tag string) (map[string]*types.Strategy, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	stats := make(map[string]*types.Strategy)
+	prefix := []byte(tag + ":")
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(bucketStrategyUsage)
+		c := bucket.Cursor()
+
+		// Accumulate scores and counts per strategy
+		scoreSums := make(map[string]float64)
+		scoreCounts := make(map[string]int)
+
+		for k, v := c.Seek(prefix); k != nil && strings.HasPrefix(string(k), tag+":"); k, v = c.Next() {
+			var usage types.StrategyUsage
+			if err := json.Unmarshal(v, &usage); err != nil {
+				continue
+			}
+
+			if _, ok := stats[usage.StrategyName]; !ok {
+				stats[usage.StrategyName] = &types.Strategy{
+					Name: usage.StrategyName,
+				}
+			}
+
+			if usage.Score > 0 {
+				scoreSums[usage.StrategyName] += usage.Score
+				scoreCounts[usage.StrategyName]++
+			}
+			stats[usage.StrategyName].SessionCount++
+		}
+
+		// Calculate averages
+		for name, strat := range stats {
+			if count := scoreCounts[name]; count > 0 {
+				strat.AvgScore = scoreSums[name] / float64(count)
+			}
+		}
+
+		return nil
+	})
+
+	return stats, err
+}
+
+// UpdateStrategyUsageScore updates the score for a strategy usage record.
+func (s *BoltStore) UpdateStrategyUsageScore(sessionID string, score float64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(bucketStrategyUsage)
+		c := bucket.Cursor()
+
+		// Find the usage record for this session
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			var usage types.StrategyUsage
+			if err := json.Unmarshal(v, &usage); err != nil {
+				continue
+			}
+
+			if usage.SessionID == sessionID {
+				usage.Score = score
+				data, err := json.Marshal(usage)
+				if err != nil {
+					return err
+				}
+				return bucket.Put(k, data)
+			}
+		}
+
+		return nil // No usage found for this session, that's OK
+	})
+}
+
 // Using a simple implementation to avoid extra dependencies.
 func NewULID() string {
 	t := time.Now().UTC()

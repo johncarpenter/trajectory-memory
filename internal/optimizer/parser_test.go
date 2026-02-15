@@ -485,3 +485,234 @@ func writeTempFile(t *testing.T, content string) string {
 	}
 	return filePath
 }
+
+// Tests for strategies markers
+
+func TestParser_FindStrategiesTargets_SingleTarget(t *testing.T) {
+	content := `# Test File
+
+## Strategies
+
+<!-- trajectory-strategies:daily-briefing -->
+strategies:
+  - name: comprehensive
+    description: Summarize everything
+    approach_prompt: |
+      Do X, Y, Z
+<!-- /trajectory-strategies:daily-briefing -->
+
+## Other Section
+`
+	filePath := writeTempFile(t, content)
+	defer os.Remove(filePath)
+
+	p := NewParser()
+	targets, err := p.FindStrategiesTargets(filePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(targets) != 1 {
+		t.Fatalf("expected 1 target, got %d", len(targets))
+	}
+
+	target := targets[0]
+	if target.Tag != "daily-briefing" {
+		t.Errorf("expected tag 'daily-briefing', got '%s'", target.Tag)
+	}
+	if target.StartLine != 5 {
+		t.Errorf("expected start line 5, got %d", target.StartLine)
+	}
+	if target.EndLine != 11 {
+		t.Errorf("expected end line 11, got %d", target.EndLine)
+	}
+	if !strings.Contains(target.Content, "comprehensive") {
+		t.Errorf("expected content to contain 'comprehensive', got: %s", target.Content)
+	}
+}
+
+func TestParser_FindStrategiesTargets_MultipleTargets(t *testing.T) {
+	content := `# Strategies
+
+<!-- trajectory-strategies:research -->
+strategies:
+  - name: deep
+<!-- /trajectory-strategies:research -->
+
+<!-- trajectory-strategies:writing -->
+strategies:
+  - name: quick
+<!-- /trajectory-strategies:writing -->
+`
+	filePath := writeTempFile(t, content)
+	defer os.Remove(filePath)
+
+	p := NewParser()
+	targets, err := p.FindStrategiesTargets(filePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(targets) != 2 {
+		t.Fatalf("expected 2 targets, got %d", len(targets))
+	}
+
+	if targets[0].Tag != "research" {
+		t.Errorf("expected first tag 'research', got '%s'", targets[0].Tag)
+	}
+	if targets[1].Tag != "writing" {
+		t.Errorf("expected second tag 'writing', got '%s'", targets[1].Tag)
+	}
+}
+
+func TestParser_FindStrategiesTargets_UnpairedMarker(t *testing.T) {
+	content := `# Test
+<!-- trajectory-strategies:test -->
+strategies:
+  - name: foo
+`
+	filePath := writeTempFile(t, content)
+	defer os.Remove(filePath)
+
+	p := NewParser()
+	_, err := p.FindStrategiesTargets(filePath)
+	if err == nil {
+		t.Error("expected error for unpaired marker")
+	}
+}
+
+func TestParser_ParseStrategies_SingleStrategy(t *testing.T) {
+	content := `strategies:
+  - name: comprehensive
+    description: Summarize everything
+    approach_prompt: |
+      Read all sources.
+      Synthesize findings.
+`
+	p := NewParser()
+	strategies, err := p.ParseStrategies(content)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(strategies) != 1 {
+		t.Fatalf("expected 1 strategy, got %d", len(strategies))
+	}
+
+	s := strategies[0]
+	if s.Name != "comprehensive" {
+		t.Errorf("expected name 'comprehensive', got '%s'", s.Name)
+	}
+	if s.Description != "Summarize everything" {
+		t.Errorf("expected description 'Summarize everything', got '%s'", s.Description)
+	}
+	if !strings.Contains(s.ApproachPrompt, "Read all sources") {
+		t.Errorf("expected approach_prompt to contain 'Read all sources', got: %s", s.ApproachPrompt)
+	}
+}
+
+func TestParser_ParseStrategies_MultipleStrategies(t *testing.T) {
+	content := `strategies:
+  - name: comprehensive
+    description: Do everything
+    approach_prompt: |
+      First step.
+
+  - name: curated
+    description: Pick the best
+    approach_prompt: |
+      Select carefully.
+
+  - name: quick
+    description: Fast approach
+    approach_prompt: |
+      Be quick.
+`
+	p := NewParser()
+	strategies, err := p.ParseStrategies(content)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(strategies) != 3 {
+		t.Fatalf("expected 3 strategies, got %d", len(strategies))
+	}
+
+	names := []string{strategies[0].Name, strategies[1].Name, strategies[2].Name}
+	expected := []string{"comprehensive", "curated", "quick"}
+	for i, name := range names {
+		if name != expected[i] {
+			t.Errorf("expected strategy %d name '%s', got '%s'", i, expected[i], name)
+		}
+	}
+}
+
+func TestParser_ParseStrategies_NoDescription(t *testing.T) {
+	content := `strategies:
+  - name: minimal
+    approach_prompt: |
+      Just do it.
+`
+	p := NewParser()
+	strategies, err := p.ParseStrategies(content)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(strategies) != 1 {
+		t.Fatalf("expected 1 strategy, got %d", len(strategies))
+	}
+
+	if strategies[0].Description != "" {
+		t.Errorf("expected empty description, got '%s'", strategies[0].Description)
+	}
+	if !strings.Contains(strategies[0].ApproachPrompt, "Just do it") {
+		t.Errorf("expected approach_prompt to contain 'Just do it'")
+	}
+}
+
+func TestParser_ReplaceStrategiesTarget(t *testing.T) {
+	content := `# Test
+
+<!-- trajectory-strategies:test -->
+strategies:
+  - name: old
+<!-- /trajectory-strategies:test -->
+
+## End
+`
+	filePath := writeTempFile(t, content)
+	defer os.Remove(filePath)
+
+	p := NewParser()
+	targets, err := p.FindStrategiesTargets(filePath)
+	if err != nil {
+		t.Fatalf("failed to find targets: %v", err)
+	}
+
+	newContent := `strategies:
+  - name: new
+    approach_prompt: |
+      New approach.`
+
+	if err := p.ReplaceStrategiesTarget(filePath, targets[0], newContent); err != nil {
+		t.Fatalf("failed to replace: %v", err)
+	}
+
+	// Verify replacement
+	result, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("failed to read result: %v", err)
+	}
+
+	resultStr := string(result)
+	if !strings.Contains(resultStr, "name: new") {
+		t.Error("expected new content to be present")
+	}
+	if strings.Contains(resultStr, "name: old") {
+		t.Error("old content should be replaced")
+	}
+	if !strings.Contains(resultStr, "trajectory-strategies:test") {
+		t.Error("markers should be preserved")
+	}
+}

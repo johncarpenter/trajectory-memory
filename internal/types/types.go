@@ -162,3 +162,52 @@ type ExamplesTarget struct {
 	EndLine         int    `json:"end_line"`
 	Content         string `json:"content"`
 }
+
+// StrategiesTarget represents a section containing strategy definitions in markdown.
+type StrategiesTarget struct {
+	FilePath  string `json:"file_path"`
+	Tag       string `json:"tag"`
+	StartLine int    `json:"start_line"`
+	EndLine   int    `json:"end_line"`
+	Content   string `json:"content"`
+}
+
+// Strategy represents a named approach for a task type.
+type Strategy struct {
+	Name           string  `json:"name"`
+	Description    string  `json:"description,omitempty"`
+	ApproachPrompt string  `json:"approach_prompt"`
+	AvgScore       float64 `json:"avg_score,omitempty"`
+	SessionCount   int     `json:"session_count,omitempty"`
+}
+
+// StrategyUsage records which strategy was used for a session.
+type StrategyUsage struct {
+	Tag          string    `json:"tag"`
+	StrategyName string    `json:"strategy_name"`
+	SessionID    string    `json:"session_id"`
+	Score        float64   `json:"score,omitempty"`
+	UsedAt       time.Time `json:"used_at"`
+}
+
+// StrategiesAnalysis contains analysis of strategy performance.
+type StrategiesAnalysis struct {
+	Tag               string     `json:"tag"`
+	Strategies        []Strategy `json:"strategies"`
+	TotalSessions     int        `json:"total_sessions"`
+	BestStrategy      string     `json:"best_strategy,omitempty"`
+	RecommendedNext   string     `json:"recommended_next,omitempty"`
+	RotationSuggested bool       `json:"rotation_suggested"`
+}
+
+// StrategySelectionMode defines how to select a strategy.
+type StrategySelectionMode string
+
+const (
+	// StrategyModeExplicit means user specifies which strategy to use.
+	StrategyModeExplicit StrategySelectionMode = "explicit"
+	// StrategyModeRecommend means AI recommends based on past performance.
+	StrategyModeRecommend StrategySelectionMode = "recommend"
+	// StrategyModeRotate means cycle through strategies for exploration.
+	StrategyModeRotate StrategySelectionMode = "rotate"
+)

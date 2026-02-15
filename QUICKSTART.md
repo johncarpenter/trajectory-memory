@@ -77,11 +77,12 @@ cp -r agent_scripts/commands/* .claude/commands/
 ```
 
 This enables commands like:
-- `/trajectory-start` - Begin recording
+- `/trajectory-start` - Begin recording (supports `--strategy`, `--recommend`, `--rotate`)
 - `/trajectory-stop` - Stop and summarize
 - `/trajectory-status` - Check recording state
 - `/trajectory-list` - Browse past sessions
 - `/trajectory-propose` - Suggest CLAUDE.md improvements
+- `/trajectory-strategies-analyze` - Analyze strategy performance
 
 ## Step 5: Add Instructions to CLAUDE.md
 
@@ -218,11 +219,62 @@ rm .trajectory-memory/tm.db
 trajectory-memory import backup.jsonl
 ```
 
+## Using Strategies
+
+Define multiple approaches for recurring tasks and let trajectory-memory learn which works best.
+
+### Define Strategies in CLAUDE.md
+
+```markdown
+<!-- trajectory-strategies:daily-briefing -->
+strategies:
+  - name: comprehensive
+    description: Summarize everything
+    approach_prompt: |
+      Summarize all articles from all feeds.
+      Group by source. Include every article.
+
+  - name: curated
+    description: Pick the best
+    approach_prompt: |
+      Select the 5-7 most important articles.
+      Provide deeper summaries (4-5 sentences each).
+
+  - name: thematic
+    description: Find connections
+    approach_prompt: |
+      Identify 3-4 themes across all feeds.
+      Group articles by theme and synthesize.
+<!-- /trajectory-strategies:daily-briefing -->
+```
+
+### Use Strategies
+
+```bash
+# Start with a specific strategy
+/trajectory-start --strategy curated daily-briefing
+
+# Let trajectory-memory recommend based on past scores
+/trajectory-start --recommend daily-briefing
+
+# Rotate to gather comparative data
+/trajectory-start --rotate daily-briefing
+```
+
+### Analyze Performance
+
+```bash
+/trajectory-strategies-analyze daily-briefing
+```
+
+Shows average scores per strategy and recommends which to use next.
+
 ## Next Steps
 
 - Explore the [examples/](examples/) directory for sample configurations
 - Set up auto-optimization triggers: `trajectory-memory trigger configure --enabled=true`
 - Add files to watch: `trajectory-memory trigger watch CLAUDE.md`
+- Define strategies for recurring tasks in your CLAUDE.md
 
 ## Getting Help
 
