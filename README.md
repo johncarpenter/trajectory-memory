@@ -74,6 +74,7 @@ trajectory-memory install
 | `import <file>` | Import sessions from JSONL |
 | `stats` | Summary statistics |
 | `prune` | Delete old/low-scoring sessions |
+| `update [--check]` | Update to latest version from GitHub |
 
 ### Context Optimization
 

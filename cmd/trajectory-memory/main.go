@@ -21,6 +21,7 @@ import (
 	"github.com/johncarpenter/trajectory-memory/internal/store"
 	"github.com/johncarpenter/trajectory-memory/internal/summarize"
 	"github.com/johncarpenter/trajectory-memory/internal/types"
+	"github.com/johncarpenter/trajectory-memory/internal/updater"
 )
 
 var version = "dev"
@@ -63,6 +64,8 @@ func main() {
 		cmdCurate(args)
 	case "trigger":
 		cmdTrigger(args)
+	case "update":
+		cmdUpdate(args)
 	case "version":
 		fmt.Printf("trajectory-memory %s\n", version)
 	case "help", "-h", "--help":
@@ -105,6 +108,7 @@ Context Optimization:
   trigger configure [flags]             Update trigger settings
   trigger watch <file>                  Add file to watch list
 
+  update [--check]        Update to latest version from GitHub
   version                 Print version information
   help                    Show this help message
 
@@ -1141,4 +1145,41 @@ func cmdTriggerWatch(args []string) {
 
 	fmt.Printf("Now watching: %s\n", filePath)
 	fmt.Printf("Watch files: %v\n", config.WatchFiles)
+}
+
+func cmdUpdate(args []string) {
+	fs := flag.NewFlagSet("update", flag.ExitOnError)
+	checkOnly := fs.Bool("check", false, "Only check for updates, don't install")
+	fs.Parse(args)
+
+	u := updater.NewUpdater(version)
+
+	fmt.Printf("Current version: %s\n", version)
+	fmt.Println("Checking for updates...")
+
+	release, hasUpdate, err := u.CheckForUpdate()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error checking for updates: %v\n", err)
+		os.Exit(1)
+	}
+
+	if !hasUpdate {
+		fmt.Println("You're running the latest version!")
+		return
+	}
+
+	fmt.Printf("New version available: %s\n", release.TagName)
+
+	if *checkOnly {
+		fmt.Println("\nRun 'trajectory-memory update' to install the update.")
+		return
+	}
+
+	fmt.Println()
+	if err := u.Update(release); err != nil {
+		fmt.Fprintf(os.Stderr, "Error updating: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Successfully updated to %s!\n", release.TagName)
 }
