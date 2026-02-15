@@ -19,7 +19,7 @@ Over time, this creates a feedback loop where high-scoring approaches inform fut
 ### Using Go Install
 
 ```bash
-go install github.com/johncarpenter/trajectory-memory/cmd/trajectory-memory@v0.1.3
+go install github.com/johncarpenter/trajectory-memory/cmd/trajectory-memory@v0.1.4
 ```
 
 ### Build from Source
