@@ -42,8 +42,19 @@ type HooksConfig struct {
 
 // HookEntry represents a single hook configuration.
 type HookEntry struct {
-	Matcher string `json:"matcher"`
-	Hook    string `json:"hook"`
+	Matcher HookMatcher `json:"matcher"`
+	Hooks   []Hook      `json:"hooks"`
+}
+
+// HookMatcher defines which tools trigger the hook.
+type HookMatcher struct {
+	Tools []string `json:"tools,omitempty"` // Empty matches all tools
+}
+
+// Hook defines the command to run.
+type Hook struct {
+	Type    string `json:"type"`
+	Command string `json:"command"`
 }
 
 // InstallOptions configures the installation.
@@ -100,8 +111,13 @@ func (i *Installer) Install(opts InstallOptions) error {
 		settings.Hooks = &HooksConfig{}
 	}
 	settings.Hooks.PostToolUse = append(settings.Hooks.PostToolUse, HookEntry{
-		Matcher: "",
-		Hook:    hookPath,
+		Matcher: HookMatcher{}, // Empty matcher matches all tools
+		Hooks: []Hook{
+			{
+				Type:    "command",
+				Command: hookPath,
+			},
+		},
 	})
 
 	// Write updated settings
@@ -137,7 +153,7 @@ func (i *Installer) Uninstall(opts InstallOptions) error {
 	if settings.Hooks != nil {
 		var newHooks []HookEntry
 		for _, h := range settings.Hooks.PostToolUse {
-			if h.Hook != hookPath {
+			if !i.hookEntryContains(h, hookPath) {
 				newHooks = append(newHooks, h)
 			}
 		}
@@ -240,7 +256,16 @@ func (i *Installer) isInstalled(settings *ClaudeSettings, hookPath string) bool 
 		return false
 	}
 	for _, h := range settings.Hooks.PostToolUse {
-		if h.Hook == hookPath {
+		if i.hookEntryContains(h, hookPath) {
+			return true
+		}
+	}
+	return false
+}
+
+func (i *Installer) hookEntryContains(entry HookEntry, hookPath string) bool {
+	for _, h := range entry.Hooks {
+		if h.Command == hookPath {
 			return true
 		}
 	}

@@ -105,8 +105,14 @@ func TestInstallUpdatesSettings(t *testing.T) {
 	}
 
 	hook := settings.Hooks.PostToolUse[0]
-	if hook.Hook != installer.GetHookPath() {
-		t.Errorf("hook path mismatch: got %s, want %s", hook.Hook, installer.GetHookPath())
+	if len(hook.Hooks) != 1 {
+		t.Errorf("expected 1 hook command, got %d", len(hook.Hooks))
+	}
+	if hook.Hooks[0].Command != installer.GetHookPath() {
+		t.Errorf("hook path mismatch: got %s, want %s", hook.Hooks[0].Command, installer.GetHookPath())
+	}
+	if hook.Hooks[0].Type != "command" {
+		t.Errorf("hook type should be 'command', got %s", hook.Hooks[0].Type)
 	}
 }
 
@@ -114,14 +120,14 @@ func TestInstallPreservesExistingHooks(t *testing.T) {
 	installer, projectDir, cleanup := setupTestInstaller(t)
 	defer cleanup()
 
-	// Create settings with existing hook
+	// Create settings with existing hook (new format)
 	settingsPath := filepath.Join(projectDir, ".claude", "settings.json")
 	existingSettings := `{
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Bash",
-        "hook": "/path/to/existing-hook.sh"
+        "matcher": {"tools": ["Bash"]},
+        "hooks": [{"type": "command", "command": "/path/to/existing-hook.sh"}]
       }
     ]
   }
@@ -144,10 +150,12 @@ func TestInstallPreservesExistingHooks(t *testing.T) {
 
 	// Check existing hook is preserved
 	found := false
-	for _, h := range settings.Hooks.PostToolUse {
-		if h.Hook == "/path/to/existing-hook.sh" {
-			found = true
-			break
+	for _, entry := range settings.Hooks.PostToolUse {
+		for _, h := range entry.Hooks {
+			if h.Command == "/path/to/existing-hook.sh" {
+				found = true
+				break
+			}
 		}
 	}
 	if !found {
@@ -261,8 +269,10 @@ func TestUninstallPreservesOtherHooks(t *testing.T) {
 	json.Unmarshal(data, &settings)
 
 	settings.Hooks.PostToolUse = append(settings.Hooks.PostToolUse, HookEntry{
-		Matcher: "Bash",
-		Hook:    "/path/to/other-hook.sh",
+		Matcher: HookMatcher{Tools: []string{"Bash"}},
+		Hooks: []Hook{
+			{Type: "command", Command: "/path/to/other-hook.sh"},
+		},
 	})
 
 	updatedData, _ := json.MarshalIndent(settings, "", "  ")
@@ -278,7 +288,7 @@ func TestUninstallPreservesOtherHooks(t *testing.T) {
 	if len(settings.Hooks.PostToolUse) != 1 {
 		t.Errorf("expected 1 hook remaining, got %d", len(settings.Hooks.PostToolUse))
 	}
-	if settings.Hooks.PostToolUse[0].Hook != "/path/to/other-hook.sh" {
+	if len(settings.Hooks.PostToolUse[0].Hooks) == 0 || settings.Hooks.PostToolUse[0].Hooks[0].Command != "/path/to/other-hook.sh" {
 		t.Error("other hook should be preserved")
 	}
 }
