@@ -19,7 +19,7 @@ Over time, this creates a feedback loop where high-scoring approaches inform fut
 ### Using Go Install
 
 ```bash
-go install github.com/johncarpenter/trajectory-memory/cmd/trajectory-memory@v0.1.5
+go install github.com/johncarpenter/trajectory-memory/cmd/trajectory-memory@v0.1.6
 ```
 
 ### Build from Source
@@ -89,6 +89,43 @@ trajectory-memory install
 | `trigger status` | Show trigger configuration |
 | `trigger configure` | Update trigger settings |
 | `trigger watch <file>` | Add file to watch list |
+
+## Slash Commands (Optional)
+
+trajectory-memory includes pre-built Claude Code slash commands for common workflows. These provide convenient shortcuts like `/trajectory-start` instead of asking Claude to "start recording".
+
+### Installation
+
+Copy the commands to your Claude Code commands directory:
+
+```bash
+# Global installation (available in all projects)
+cp -r agent_scripts/commands/* ~/.claude/commands/
+
+# Or project-specific installation
+cp -r agent_scripts/commands/* .claude/commands/
+```
+
+### Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `/trajectory-start` | Begin recording the current session |
+| `/trajectory-stop` | Stop recording and generate summary with score |
+| `/trajectory-status` | Check if recording is active |
+| `/trajectory-list` | List recent recorded sessions |
+| `/trajectory-propose` | Propose CLAUDE.md improvements based on trajectory data |
+
+### Usage Examples
+
+```
+/trajectory-start                    # Start recording
+/trajectory-start working on RSS     # Start and search for related past sessions
+/trajectory-stop                     # Stop and auto-generate summary
+/trajectory-list rss                 # Search past sessions about RSS
+/trajectory-propose                  # Propose improvements from all trajectories
+/trajectory-propose daily-digest     # Focus on specific workflow
+```
 
 ## MCP Tools
 

@@ -10,7 +10,7 @@ Get trajectory-memory running with Claude Code in 5 minutes.
 ## Step 1: Install trajectory-memory
 
 ```bash
-go install github.com/johncarpenter/trajectory-memory/cmd/trajectory-memory@v0.1.5
+go install github.com/johncarpenter/trajectory-memory/cmd/trajectory-memory@v0.1.6
 ```
 
 Or build from source:
@@ -64,7 +64,26 @@ Add the MCP server to your Claude Code settings. Edit `~/.claude/settings.json`:
 
 Restart Claude Code to load the new MCP server.
 
-## Step 4: Add Instructions to CLAUDE.md
+## Step 4: Install Slash Commands (Optional)
+
+For convenient shortcuts, install the pre-built Claude Code slash commands:
+
+```bash
+# Global installation (available in all projects)
+cp -r agent_scripts/commands/* ~/.claude/commands/
+
+# Or project-specific
+cp -r agent_scripts/commands/* .claude/commands/
+```
+
+This enables commands like:
+- `/trajectory-start` - Begin recording
+- `/trajectory-stop` - Stop and summarize
+- `/trajectory-status` - Check recording state
+- `/trajectory-list` - Browse past sessions
+- `/trajectory-propose` - Suggest CLAUDE.md improvements
+
+## Step 5: Add Instructions to CLAUDE.md
 
 Copy the snippet from `claude-md-snippet.md` to your project's `CLAUDE.md` or global `~/.claude/CLAUDE.md`:
 
@@ -80,7 +99,7 @@ trajectory_start({ "task_prompt": "<description>", "tags": ["<type>"] })
 
 See the full [claude-md-snippet.md](claude-md-snippet.md) for complete instructions.
 
-## Step 5: Start Recording
+## Step 6: Start Recording
 
 In Claude Code, start a recording session:
 
@@ -90,7 +109,7 @@ You: Start logging this session - I'm working on implementing user authenticatio
 
 Claude will call `trajectory_start` to begin recording. Work normally - all tool invocations are captured.
 
-## Step 6: Stop and Summarize
+## Step 7: Stop and Summarize
 
 When finished:
 
@@ -104,7 +123,7 @@ Claude will:
 3. Generate a summary
 4. Call `trajectory_summarize` to store it
 
-## Step 7: Score the Session
+## Step 8: Score the Session
 
 Score how well the session went (0.0-1.0):
 
