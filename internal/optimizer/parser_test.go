@@ -716,3 +716,190 @@ strategies:
 		t.Error("markers should be preserved")
 	}
 }
+
+// Tests for new marker format: <!-- trajectory-optimize:tag attrs -->
+
+func TestParser_FindTargets_NewFormat(t *testing.T) {
+	content := `# Test File
+
+## Best Practices
+
+<!-- trajectory-optimize:daily-briefing min_sessions=10 -->
+Select and summarize articles from RSS feeds. Weight toward
+longer-form substantive content. Skip short news blurbs.
+<!-- /trajectory-optimize:daily-briefing -->
+
+## Other Section
+Some other content.
+`
+	filePath := writeTempFile(t, content)
+	defer os.Remove(filePath)
+
+	p := NewParser()
+	targets, err := p.FindTargets(filePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(targets) != 1 {
+		t.Fatalf("expected 1 target, got %d", len(targets))
+	}
+
+	target := targets[0]
+	if target.Tag != "daily-briefing" {
+		t.Errorf("expected tag 'daily-briefing', got '%s'", target.Tag)
+	}
+	if target.MinSessions != 10 {
+		t.Errorf("expected min_sessions 10, got %d", target.MinSessions)
+	}
+	if !strings.Contains(target.Content, "Select and summarize") {
+		t.Errorf("expected content to contain 'Select and summarize', got: %s", target.Content)
+	}
+}
+
+func TestParser_FindTargets_NewFormatNoAttrs(t *testing.T) {
+	content := `<!-- trajectory-optimize:research -->
+Do research here
+<!-- /trajectory-optimize:research -->
+`
+	filePath := writeTempFile(t, content)
+	defer os.Remove(filePath)
+
+	p := NewParser()
+	targets, err := p.FindTargets(filePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(targets) != 1 {
+		t.Fatalf("expected 1 target, got %d", len(targets))
+	}
+	if targets[0].Tag != "research" {
+		t.Errorf("expected tag 'research', got '%s'", targets[0].Tag)
+	}
+	if targets[0].MinSessions != 10 {
+		t.Errorf("expected default min_sessions 10, got %d", targets[0].MinSessions)
+	}
+}
+
+func TestParser_FindTargets_MixedFormats(t *testing.T) {
+	content := `# Mixed Formats
+
+<!-- trajectory-optimize:new-style min_sessions=5 -->
+New format content
+<!-- /trajectory-optimize:new-style -->
+
+<!-- trajectory-optimize:start tag="legacy-style" min_sessions=15 -->
+Legacy format content
+<!-- trajectory-optimize:end -->
+`
+	filePath := writeTempFile(t, content)
+	defer os.Remove(filePath)
+
+	p := NewParser()
+	targets, err := p.FindTargets(filePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(targets) != 2 {
+		t.Fatalf("expected 2 targets, got %d", len(targets))
+	}
+
+	if targets[0].Tag != "new-style" || targets[0].MinSessions != 5 {
+		t.Errorf("first target mismatch: tag=%s, min_sessions=%d", targets[0].Tag, targets[0].MinSessions)
+	}
+	if targets[1].Tag != "legacy-style" || targets[1].MinSessions != 15 {
+		t.Errorf("second target mismatch: tag=%s, min_sessions=%d", targets[1].Tag, targets[1].MinSessions)
+	}
+}
+
+func TestParser_FindExamplesTargets_NewFormat(t *testing.T) {
+	content := `# Examples
+
+<!-- trajectory-examples:daily-briefing max=3 -->
+(curated examples appear here after scoring)
+<!-- /trajectory-examples:daily-briefing -->
+`
+	filePath := writeTempFile(t, content)
+	defer os.Remove(filePath)
+
+	p := NewParser()
+	targets, err := p.FindExamplesTargets(filePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(targets) != 1 {
+		t.Fatalf("expected 1 target, got %d", len(targets))
+	}
+
+	target := targets[0]
+	if target.Tag != "daily-briefing" {
+		t.Errorf("expected tag 'daily-briefing', got '%s'", target.Tag)
+	}
+	if target.MaxExamples != 3 {
+		t.Errorf("expected max 3, got %d", target.MaxExamples)
+	}
+}
+
+func TestParser_FindExamplesTargets_NewFormatNoAttrs(t *testing.T) {
+	content := `<!-- trajectory-examples:research -->
+Examples here
+<!-- /trajectory-examples:research -->
+`
+	filePath := writeTempFile(t, content)
+	defer os.Remove(filePath)
+
+	p := NewParser()
+	targets, err := p.FindExamplesTargets(filePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(targets) != 1 {
+		t.Fatalf("expected 1 target, got %d", len(targets))
+	}
+	if targets[0].Tag != "research" {
+		t.Errorf("expected tag 'research', got '%s'", targets[0].Tag)
+	}
+	if targets[0].MaxExamples != 3 {
+		t.Errorf("expected default max 3, got %d", targets[0].MaxExamples)
+	}
+	if !targets[0].IncludeNegative {
+		t.Error("expected default include_negative true")
+	}
+}
+
+func TestParser_FindExamplesTargets_MixedFormats(t *testing.T) {
+	content := `# Mixed Examples
+
+<!-- trajectory-examples:new-style max=5 include_negative=false -->
+New format
+<!-- /trajectory-examples:new-style -->
+
+<!-- trajectory-examples:start tag="legacy-style" max=2 -->
+Legacy format
+<!-- trajectory-examples:end -->
+`
+	filePath := writeTempFile(t, content)
+	defer os.Remove(filePath)
+
+	p := NewParser()
+	targets, err := p.FindExamplesTargets(filePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(targets) != 2 {
+		t.Fatalf("expected 2 targets, got %d", len(targets))
+	}
+
+	if targets[0].Tag != "new-style" || targets[0].MaxExamples != 5 || targets[0].IncludeNegative {
+		t.Errorf("first target mismatch: tag=%s, max=%d, include_negative=%v",
+			targets[0].Tag, targets[0].MaxExamples, targets[0].IncludeNegative)
+	}
+	if targets[1].Tag != "legacy-style" || targets[1].MaxExamples != 2 {
+		t.Errorf("second target mismatch: tag=%s, max=%d", targets[1].Tag, targets[1].MaxExamples)
+	}
+}

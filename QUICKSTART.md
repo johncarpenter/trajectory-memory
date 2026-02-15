@@ -179,9 +179,13 @@ trajectory-memory optimize apply <record-id>
 Add optimization markers to your CLAUDE.md sections:
 
 ```markdown
-<!-- trajectory-optimize:start tag="research" min_sessions=10 -->
+<!-- trajectory-optimize:research min_sessions=10 -->
 Your instructions here...
-<!-- trajectory-optimize:end -->
+<!-- /trajectory-optimize:research -->
+
+<!-- trajectory-examples:research max=3 -->
+(curated examples appear here after scoring)
+<!-- /trajectory-examples:research -->
 ```
 
 ## Example Workflow

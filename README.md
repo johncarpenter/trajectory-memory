@@ -208,11 +208,19 @@ The `<hash>` is an 8-character SHA256 prefix of the project path, ensuring socke
 trajectory-memory can automatically improve instructions based on what works. Add markers to your CLAUDE.md:
 
 ```markdown
-<!-- trajectory-optimize:start tag="research" min_sessions=10 -->
+<!-- trajectory-optimize:research min_sessions=10 -->
 1. Define your research scope before starting
 2. Read all available context files
 3. Use 5-8 targeted searches
-<!-- trajectory-optimize:end -->
+<!-- /trajectory-optimize:research -->
+```
+
+You can also add curated examples that get populated with high-scoring examples:
+
+```markdown
+<!-- trajectory-examples:research max=3 -->
+(curated examples appear here after scoring)
+<!-- /trajectory-examples:research -->
 ```
 
 After accumulating scored sessions, run:

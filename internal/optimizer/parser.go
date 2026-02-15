@@ -27,13 +27,21 @@ var (
 
 // Marker patterns
 var (
-	// <!-- trajectory-optimize:start tag="research" min_sessions=10 -->
-	optimizeStartPattern = regexp.MustCompile(`<!--\s*trajectory-optimize:start\s+(.+?)\s*-->`)
-	optimizeEndPattern   = regexp.MustCompile(`<!--\s*trajectory-optimize:end\s*-->`)
+	// New format: <!-- trajectory-optimize:daily-briefing min_sessions=10 -->
+	optimizeStartPatternNew = regexp.MustCompile(`<!--\s*trajectory-optimize:(\S+?)(?:\s+(.+?))?\s*-->`)
+	optimizeEndPatternNew   = regexp.MustCompile(`<!--\s*/trajectory-optimize:(\S+)\s*-->`)
 
-	// <!-- trajectory-examples:start tag="research" max=3 include_negative=true -->
-	examplesStartPattern = regexp.MustCompile(`<!--\s*trajectory-examples:start\s+(.+?)\s*-->`)
-	examplesEndPattern   = regexp.MustCompile(`<!--\s*trajectory-examples:end\s*-->`)
+	// Legacy format: <!-- trajectory-optimize:start tag="research" min_sessions=10 -->
+	optimizeStartPatternLegacy = regexp.MustCompile(`<!--\s*trajectory-optimize:start\s+(.+?)\s*-->`)
+	optimizeEndPatternLegacy   = regexp.MustCompile(`<!--\s*trajectory-optimize:end\s*-->`)
+
+	// New format: <!-- trajectory-examples:daily-briefing max=3 -->
+	examplesStartPatternNew = regexp.MustCompile(`<!--\s*trajectory-examples:(\S+?)(?:\s+(.+?))?\s*-->`)
+	examplesEndPatternNew   = regexp.MustCompile(`<!--\s*/trajectory-examples:(\S+)\s*-->`)
+
+	// Legacy format: <!-- trajectory-examples:start tag="research" max=3 include_negative=true -->
+	examplesStartPatternLegacy = regexp.MustCompile(`<!--\s*trajectory-examples:start\s+(.+?)\s*-->`)
+	examplesEndPatternLegacy   = regexp.MustCompile(`<!--\s*trajectory-examples:end\s*-->`)
 
 	// <!-- trajectory-strategies:daily-briefing -->
 	strategiesStartPattern = regexp.MustCompile(`<!--\s*trajectory-strategies:(\S+)\s*-->`)
@@ -60,6 +68,8 @@ func NewParser() *Parser {
 }
 
 // FindTargets scans a markdown file for optimization target markers.
+// Supports both new format (<!-- trajectory-optimize:tag attrs -->) and
+// legacy format (<!-- trajectory-optimize:start tag="name" attrs -->).
 func (p *Parser) FindTargets(filePath string) ([]types.OptimizationTarget, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -69,6 +79,7 @@ func (p *Parser) FindTargets(filePath string) ([]types.OptimizationTarget, error
 
 	var targets []types.OptimizationTarget
 	var currentStart *pendingTarget
+	var useLegacyEnd bool
 	scanner := bufio.NewScanner(file)
 	lineNum := 0
 
@@ -76,8 +87,88 @@ func (p *Parser) FindTargets(filePath string) ([]types.OptimizationTarget, error
 		lineNum++
 		line := scanner.Text()
 
-		// Check for start marker
-		if match := optimizeStartPattern.FindStringSubmatch(line); match != nil {
+		// Check for end markers FIRST (before start markers)
+		// This prevents the new start pattern from matching legacy "end" markers
+
+		// Check for new format end marker: <!-- /trajectory-optimize:tag -->
+		if optimizeEndPatternNew.MatchString(line) {
+			if currentStart == nil {
+				return nil, fmt.Errorf("%w: end marker without start at line %d", ErrUnpairedMarkers, lineNum)
+			}
+			if useLegacyEnd {
+				// Wrong end marker format for this target
+				return nil, fmt.Errorf("%w: mismatched end marker format at line %d", ErrInvalidMarker, lineNum)
+			}
+
+			targets = append(targets, types.OptimizationTarget{
+				FilePath:    currentStart.filePath,
+				Tag:         currentStart.tag,
+				MinSessions: currentStart.minSessions,
+				StartLine:   currentStart.startLine,
+				EndLine:     lineNum,
+				Content:     strings.TrimSpace(currentStart.content.String()),
+			})
+			currentStart = nil
+			continue
+		}
+
+		// Check for legacy format end marker: <!-- trajectory-optimize:end -->
+		if optimizeEndPatternLegacy.MatchString(line) {
+			if currentStart == nil {
+				return nil, fmt.Errorf("%w: end marker without start at line %d", ErrUnpairedMarkers, lineNum)
+			}
+			if !useLegacyEnd {
+				// Wrong end marker format for this target
+				return nil, fmt.Errorf("%w: mismatched end marker format at line %d", ErrInvalidMarker, lineNum)
+			}
+
+			targets = append(targets, types.OptimizationTarget{
+				FilePath:    currentStart.filePath,
+				Tag:         currentStart.tag,
+				MinSessions: currentStart.minSessions,
+				StartLine:   currentStart.startLine,
+				EndLine:     lineNum,
+				Content:     strings.TrimSpace(currentStart.content.String()),
+			})
+			currentStart = nil
+			continue
+		}
+
+		// Check for new format start marker: <!-- trajectory-optimize:tag [attrs] -->
+		if match := optimizeStartPatternNew.FindStringSubmatch(line); match != nil {
+			tag := match[1]
+			// Skip if this is actually a legacy "start" marker
+			if tag == "start" {
+				goto checkLegacy
+			}
+
+			if currentStart != nil {
+				return nil, fmt.Errorf("%w: nested start marker at line %d", ErrNestedMarkers, lineNum)
+			}
+
+			minSessions := 10
+			if match[2] != "" {
+				if ms := minSessionsAttrPattern.FindStringSubmatch(match[2]); ms != nil {
+					if n, err := strconv.Atoi(ms[1]); err == nil {
+						minSessions = n
+					}
+				}
+			}
+
+			currentStart = &pendingTarget{
+				filePath:    filePath,
+				tag:         tag,
+				minSessions: minSessions,
+				startLine:   lineNum,
+				content:     strings.Builder{},
+			}
+			useLegacyEnd = false
+			continue
+		}
+
+	checkLegacy:
+		// Check for legacy format start marker: <!-- trajectory-optimize:start tag="name" -->
+		if match := optimizeStartPatternLegacy.FindStringSubmatch(line); match != nil {
 			if currentStart != nil {
 				return nil, fmt.Errorf("%w: nested start marker at line %d", ErrNestedMarkers, lineNum)
 			}
@@ -95,24 +186,7 @@ func (p *Parser) FindTargets(filePath string) ([]types.OptimizationTarget, error
 				startLine:   lineNum,
 				content:     strings.Builder{},
 			}
-			continue
-		}
-
-		// Check for end marker
-		if optimizeEndPattern.MatchString(line) {
-			if currentStart == nil {
-				return nil, fmt.Errorf("%w: end marker without start at line %d", ErrUnpairedMarkers, lineNum)
-			}
-
-			targets = append(targets, types.OptimizationTarget{
-				FilePath:    currentStart.filePath,
-				Tag:         currentStart.tag,
-				MinSessions: currentStart.minSessions,
-				StartLine:   currentStart.startLine,
-				EndLine:     lineNum,
-				Content:     strings.TrimSpace(currentStart.content.String()),
-			})
-			currentStart = nil
+			useLegacyEnd = true
 			continue
 		}
 
@@ -137,6 +211,8 @@ func (p *Parser) FindTargets(filePath string) ([]types.OptimizationTarget, error
 }
 
 // FindExamplesTargets scans a markdown file for examples target markers.
+// Supports both new format (<!-- trajectory-examples:tag attrs -->) and
+// legacy format (<!-- trajectory-examples:start tag="name" attrs -->).
 func (p *Parser) FindExamplesTargets(filePath string) ([]types.ExamplesTarget, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -146,6 +222,7 @@ func (p *Parser) FindExamplesTargets(filePath string) ([]types.ExamplesTarget, e
 
 	var targets []types.ExamplesTarget
 	var currentStart *pendingExamplesTarget
+	var useLegacyEnd bool
 	scanner := bufio.NewScanner(file)
 	lineNum := 0
 
@@ -153,8 +230,93 @@ func (p *Parser) FindExamplesTargets(filePath string) ([]types.ExamplesTarget, e
 		lineNum++
 		line := scanner.Text()
 
-		// Check for start marker
-		if match := examplesStartPattern.FindStringSubmatch(line); match != nil {
+		// Check for end markers FIRST (before start markers)
+		// This prevents the new start pattern from matching legacy "end" markers
+
+		// Check for new format end marker: <!-- /trajectory-examples:tag -->
+		if examplesEndPatternNew.MatchString(line) {
+			if currentStart == nil {
+				return nil, fmt.Errorf("%w: end marker without start at line %d", ErrUnpairedMarkers, lineNum)
+			}
+			if useLegacyEnd {
+				return nil, fmt.Errorf("%w: mismatched end marker format at line %d", ErrInvalidMarker, lineNum)
+			}
+
+			targets = append(targets, types.ExamplesTarget{
+				FilePath:        currentStart.filePath,
+				Tag:             currentStart.tag,
+				MaxExamples:     currentStart.maxExamples,
+				IncludeNegative: currentStart.includeNegative,
+				StartLine:       currentStart.startLine,
+				EndLine:         lineNum,
+				Content:         strings.TrimSpace(currentStart.content.String()),
+			})
+			currentStart = nil
+			continue
+		}
+
+		// Check for legacy format end marker: <!-- trajectory-examples:end -->
+		if examplesEndPatternLegacy.MatchString(line) {
+			if currentStart == nil {
+				return nil, fmt.Errorf("%w: end marker without start at line %d", ErrUnpairedMarkers, lineNum)
+			}
+			if !useLegacyEnd {
+				return nil, fmt.Errorf("%w: mismatched end marker format at line %d", ErrInvalidMarker, lineNum)
+			}
+
+			targets = append(targets, types.ExamplesTarget{
+				FilePath:        currentStart.filePath,
+				Tag:             currentStart.tag,
+				MaxExamples:     currentStart.maxExamples,
+				IncludeNegative: currentStart.includeNegative,
+				StartLine:       currentStart.startLine,
+				EndLine:         lineNum,
+				Content:         strings.TrimSpace(currentStart.content.String()),
+			})
+			currentStart = nil
+			continue
+		}
+
+		// Check for new format start marker: <!-- trajectory-examples:tag [attrs] -->
+		if match := examplesStartPatternNew.FindStringSubmatch(line); match != nil {
+			tag := match[1]
+			// Skip if this is actually a legacy "start" marker
+			if tag == "start" {
+				goto checkLegacyExamples
+			}
+
+			if currentStart != nil {
+				return nil, fmt.Errorf("%w: nested start marker at line %d", ErrNestedMarkers, lineNum)
+			}
+
+			maxExamples := 3
+			includeNegative := true
+			if match[2] != "" {
+				if mx := maxAttrPattern.FindStringSubmatch(match[2]); mx != nil {
+					if n, err := strconv.Atoi(mx[1]); err == nil {
+						maxExamples = n
+					}
+				}
+				if inc := includeNegativeAttrPattern.FindStringSubmatch(match[2]); inc != nil {
+					includeNegative = inc[1] == "true"
+				}
+			}
+
+			currentStart = &pendingExamplesTarget{
+				filePath:        filePath,
+				tag:             tag,
+				maxExamples:     maxExamples,
+				includeNegative: includeNegative,
+				startLine:       lineNum,
+				content:         strings.Builder{},
+			}
+			useLegacyEnd = false
+			continue
+		}
+
+	checkLegacyExamples:
+		// Check for legacy format start marker: <!-- trajectory-examples:start tag="name" -->
+		if match := examplesStartPatternLegacy.FindStringSubmatch(line); match != nil {
 			if currentStart != nil {
 				return nil, fmt.Errorf("%w: nested start marker at line %d", ErrNestedMarkers, lineNum)
 			}
@@ -173,25 +335,7 @@ func (p *Parser) FindExamplesTargets(filePath string) ([]types.ExamplesTarget, e
 				startLine:       lineNum,
 				content:         strings.Builder{},
 			}
-			continue
-		}
-
-		// Check for end marker
-		if examplesEndPattern.MatchString(line) {
-			if currentStart == nil {
-				return nil, fmt.Errorf("%w: end marker without start at line %d", ErrUnpairedMarkers, lineNum)
-			}
-
-			targets = append(targets, types.ExamplesTarget{
-				FilePath:        currentStart.filePath,
-				Tag:             currentStart.tag,
-				MaxExamples:     currentStart.maxExamples,
-				IncludeNegative: currentStart.includeNegative,
-				StartLine:       currentStart.startLine,
-				EndLine:         lineNum,
-				Content:         strings.TrimSpace(currentStart.content.String()),
-			})
-			currentStart = nil
+			useLegacyEnd = true
 			continue
 		}
 
