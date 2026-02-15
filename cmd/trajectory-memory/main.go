@@ -109,9 +109,12 @@ Context Optimization:
   help                    Show this help message
 
 Environment Variables:
-  TM_DB_PATH       Database path (default: ~/.trajectory-memory/tm.db)
-  TM_SOCKET_PATH   Unix socket path (default: /tmp/trajectory-memory.sock)
-  TM_DATA_DIR      Data directory (default: ~/.trajectory-memory)
+  TM_DB_PATH       Database path (default: <project>/.trajectory-memory/tm.db)
+  TM_SOCKET_PATH   Unix socket path (default: /tmp/trajectory-memory-<hash>.sock)
+  TM_DATA_DIR      Data directory (default: <project>/.trajectory-memory)
+
+Note: <project> is detected by finding .git/, CLAUDE.md, or .claude/ markers.
+      <hash> is an 8-character hash of the project path for isolation.
 `)
 }
 

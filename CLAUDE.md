@@ -11,7 +11,8 @@ trajectory-memory/
 │   ├── types/types.go               # Core data structures (Session, TrajectoryStep, Outcome, OptimizationRecord)
 │   ├── store/store.go               # BBolt-backed persistence layer
 │   ├── store/optimization_store.go  # Optimization record persistence
-│   ├── config/config.go             # Configuration from env vars
+│   ├── config/config.go             # Configuration from env vars (uses project detection)
+│   ├── project/project.go           # Project root detection and path utilities
 │   ├── ingestion/server.go          # Unix socket HTTP server for hook events
 │   ├── mcp/server.go                # MCP JSON-RPC server over stdio
 │   ├── installer/installer.go       # Hook installation/uninstallation
@@ -43,6 +44,15 @@ go test ./... -v
 - **Session**: A recording of tool invocations during a task
 - **TrajectoryStep**: A single tool call with input/output summaries
 - **Outcome**: Score (0.0-1.0) and notes for a completed session
+
+## Per-Project Isolation
+
+Each project gets its own isolated database and socket:
+- **Database**: `.trajectory-memory/tm.db` in project root
+- **Socket**: `/tmp/trajectory-memory-{hash}.sock` (hash of project path)
+
+Project root is detected by finding `.git/`, `CLAUDE.md`, or `.claude/` markers.
+This allows multiple Claude Code instances to run simultaneously without lock conflicts.
 
 ## Store Operations
 

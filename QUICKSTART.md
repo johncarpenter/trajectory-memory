@@ -37,7 +37,9 @@ trajectory-memory uses hooks to capture tool invocations. Install them with:
 trajectory-memory install
 ```
 
-This creates hook scripts in `~/.trajectory-memory/hooks/` and configures Claude Code to use them.
+This creates hook scripts in `<project>/.trajectory-memory/hooks/` and configures Claude Code to use them.
+
+**Note:** Each project gets its own database at `.trajectory-memory/tm.db` in the project root. Add `.trajectory-memory/` to your `.gitignore`.
 
 To install globally (user-level instead of project-level):
 
@@ -182,18 +184,18 @@ Day 4: New sessions benefit from optimized instructions
 ### Hooks Not Firing
 
 1. Run `trajectory-memory install` again
-2. Check hook scripts exist in `~/.trajectory-memory/hooks/`
+2. Check hook scripts exist in `.trajectory-memory/hooks/` (in project root)
 3. Verify hooks are configured in Claude Code settings
 
 ### Database Issues
 
 ```bash
-# Check database location
-echo $TM_DB_PATH  # Default: ~/.trajectory-memory/tm.db
+# Check database location (per-project)
+ls .trajectory-memory/tm.db
 
 # Export and reimport
 trajectory-memory export --output backup.jsonl
-rm ~/.trajectory-memory/tm.db
+rm .trajectory-memory/tm.db
 trajectory-memory import backup.jsonl
 ```
 

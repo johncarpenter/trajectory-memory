@@ -55,7 +55,7 @@ type Implementation struct {
 
 // Capabilities describes what the server supports.
 type Capabilities struct {
-	Tools map[string]interface{} `json:"tools,omitempty"`
+	Tools map[string]interface{} `json:"tools"`
 }
 
 // InitializeParams are the parameters for the initialize method.

@@ -118,9 +118,14 @@ When running as an MCP server, these tools are available:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TM_DB_PATH` | `~/.trajectory-memory/tm.db` | Database location |
-| `TM_SOCKET_PATH` | `/tmp/trajectory-memory.sock` | Unix socket for hook communication |
-| `TM_DATA_DIR` | `~/.trajectory-memory` | Data directory |
+| `TM_DB_PATH` | `<project>/.trajectory-memory/tm.db` | Database location |
+| `TM_SOCKET_PATH` | `/tmp/trajectory-memory-<hash>.sock` | Unix socket for hook communication |
+| `TM_DATA_DIR` | `<project>/.trajectory-memory` | Data directory |
+
+**Note:** `<project>` is auto-detected by finding `.git/`, `CLAUDE.md`, or `.claude/` markers.
+The `<hash>` is an 8-character SHA256 prefix of the project path, ensuring socket isolation between projects.
+
+**Recommended:** Add `.trajectory-memory/` to your `.gitignore`.
 
 ## How It Works
 
